@@ -7,7 +7,13 @@ import {
   FileText,
   BarChart3,
   Settings,
+  Play,
+  Sparkles,
 } from 'lucide-react';
+
+interface SidebarProps {
+  onOpenWizard: () => void;
+}
 
 const navItems = [
   { path: '/leads', label: '线索池', icon: Users },
@@ -19,7 +25,7 @@ const navItems = [
   { path: '/settings', label: '系统设置', icon: Settings },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenWizard }: SidebarProps) {
   return (
     <aside className="w-60 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
       <div className="h-16 flex items-center px-5 border-b border-slate-100">
@@ -47,6 +53,23 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      <div className="px-3 pb-3">
+        <button
+          onClick={onOpenWizard}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 transition-all shadow-md shadow-primary-200"
+        >
+          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+            <Play className="w-4 h-4" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-medium">销售流程演示</p>
+            <p className="text-xs text-primary-100">7步走完完整流程</p>
+          </div>
+          <Sparkles className="w-4 h-4 text-yellow-300" />
+        </button>
+      </div>
+
       <div className="p-4 border-t border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center">

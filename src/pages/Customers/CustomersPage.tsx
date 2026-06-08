@@ -2,18 +2,20 @@ import { useState } from 'react';
 import { Search, Plus, Trash2, Users, UserX, Merge, Building2 } from 'lucide-react';
 import { useCRMStore } from '../../store/crmStore';
 import { INDUSTRIES, CUSTOMER_STATUS, COMPANY_SCALES, LOST_REASONS, SALES_REPS } from '../../constants';
-import { getLabelByValue, formatDate } from '../../utils';
+import { getLabelByValue } from '../../utils';
 import PageHeader from '../../components/UI/PageHeader';
 import SlidePanel from '../../components/UI/SlidePanel';
 import Modal from '../../components/UI/Modal';
 import ConfirmDialog from '../../components/UI/ConfirmDialog';
+import MergeCustomerModal from '../../components/Customers/MergeCustomerModal';
 
 export default function CustomersPage() {
   const {
-    customers, contacts, opportunities,
+    customers, contacts, opportunities, settings,
     addCustomer, updateCustomer, deleteCustomer, mergeCustomers, markCustomerLost,
     addContact, updateContact, deleteContact,
   } = useCRMStore();
+  const visibleFields = settings.fieldConfig.customers;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -23,8 +25,7 @@ export default function CustomersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [isMergeOpen, setIsMergeOpen] = useState(false);
-  const [selectedForMerge, setSelectedForMerge] = useState<string[]>([]);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [isLostOpen, setIsLostOpen] = useState(false);
   const [lostCustomerId, setLostCustomerId] = useState<string | null>(null);
   const [lostReason, setLostReason] = useState('');
@@ -156,22 +157,6 @@ export default function CustomersPage() {
     setIsContactFormOpen(false);
   };
 
-  const handleMergeToggle = (customerId: string) => {
-    setSelectedForMerge((prev) =>
-      prev.includes(customerId)
-        ? prev.filter((id) => id !== customerId)
-        : [...prev, customerId]
-    );
-  };
-
-  const handleMerge = (targetId: string) => {
-    const sourceIds = selectedForMerge.filter((id) => id !== targetId);
-    if (sourceIds.length === 0) return;
-    mergeCustomers(targetId, sourceIds);
-    setIsMergeOpen(false);
-    setSelectedForMerge([]);
-  };
-
   const handleMarkLost = () => {
     if (lostCustomerId && lostReason) {
       markCustomerLost(lostCustomerId, lostReason);
@@ -194,12 +179,11 @@ export default function CustomersPage() {
 
       <div className="flex gap-2 mb-4">
         <button
-          onClick={() => setIsMergeOpen(true)}
+          onClick={() => setIsMergeModalOpen(true)}
           className="btn-secondary"
-          disabled={selectedForMerge.length < 2}
         >
           <Merge className="w-4 h-4 mr-1.5" />
-          合并客户 ({selectedForMerge.length})
+          合并客户
         </button>
       </div>
 
@@ -256,15 +240,25 @@ export default function CustomersPage() {
                     <Building2 className="w-5 h-5 text-primary-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-800">{customer.name}</h3>
-                    <p className="text-xs text-slate-500">
-                      {getLabelByValue(INDUSTRIES, customer.industry)}
-                    </p>
+                    {visibleFields.includes('name') && (
+                      <h3 className="font-semibold text-slate-800">{customer.name}</h3>
+                    )}
+                    {visibleFields.includes('industry') && (
+                      <p className="text-xs text-slate-500">
+                        {getLabelByValue(INDUSTRIES, customer.industry)}
+                      </p>
+                    )}
                   </div>
                 </div>
-                {getStatusBadge(customer.status)}
+                {visibleFields.includes('status') && getStatusBadge(customer.status)}
               </div>
               <div className="space-y-2 text-sm text-slate-600">
+                {visibleFields.includes('scale') && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">企业规模</span>
+                    <span>{getLabelByValue(COMPANY_SCALES, customer.scale)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-400">联系人</span>
                   <span>{getCustomerContacts(customer.id).length} 人</span>
@@ -273,25 +267,19 @@ export default function CustomersPage() {
                   <span className="text-slate-400">商机数</span>
                   <span>{getCustomerOpportunities(customer.id).length} 个</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">负责人</span>
-                  <span>{getOwnerName(customer.owner)}</span>
-                </div>
+                {visibleFields.includes('owner') && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">负责人</span>
+                    <span>{getOwnerName(customer.owner)}</span>
+                  </div>
+                )}
+                {visibleFields.includes('createdAt') && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">创建时间</span>
+                    <span className="text-slate-500">{customer.createdAt}</span>
+                  </div>
+                )}
               </div>
-              {isMergeOpen && (
-                <div className="mt-3 pt-3 border-t border-slate-100">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedForMerge.includes(customer.id)}
-                      onChange={() => handleMergeToggle(customer.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    选择合并
-                  </label>
-                </div>
-              )}
             </div>
           ))
         )}
@@ -634,63 +622,10 @@ export default function CustomersPage() {
         </form>
       </Modal>
 
-      <Modal
-        isOpen={isMergeOpen}
-        onClose={() => {
-          setIsMergeOpen(false);
-          setSelectedForMerge([]);
-        }}
-        title="合并客户"
-        size="lg"
-      >
-        <p className="text-sm text-slate-600 mb-4">
-          选择需要合并的客户（至少2个），然后选择主客户进行合并
-        </p>
-        <div className="space-y-2 max-h-64 overflow-y-auto">
-          {customers.map((cust) => (
-            <label
-              key={cust.id}
-              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                selectedForMerge.includes(cust.id)
-                  ? 'border-primary-300 bg-primary-50'
-                  : 'border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={selectedForMerge.includes(cust.id)}
-                onChange={() => handleMergeToggle(cust.id)}
-                className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-              />
-              <div>
-                <p className="font-medium text-slate-800">{cust.name}</p>
-                <p className="text-xs text-slate-500">
-                  {getLabelByValue(INDUSTRIES, cust.industry)} · {getCustomerContacts(cust.id).length}个联系人
-                </p>
-              </div>
-            </label>
-          ))}
-        </div>
-        {selectedForMerge.length >= 2 && (
-          <div className="mt-4 pt-4 border-t border-slate-200">
-            <p className="text-sm text-slate-600 mb-2">选择合并后的主客户：</p>
-            <div className="flex flex-wrap gap-2">
-              {selectedForMerge.map((id) => {
-                const cust = customers.find((c) => c.id === id);
-                return (
-                  <button
-                    key={id}
-                    onClick={() => handleMerge(id)}
-                    className="btn-secondary text-sm"
-                  >
-                    以 {cust?.name} 为主
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </Modal>
+      <MergeCustomerModal
+        isOpen={isMergeModalOpen}
+        onClose={() => setIsMergeModalOpen(false)}
+      />
 
       <Modal
         isOpen={isLostOpen}

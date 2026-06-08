@@ -8,7 +8,8 @@ import SlidePanel from '../../components/UI/SlidePanel';
 import ConfirmDialog from '../../components/UI/ConfirmDialog';
 
 export default function LeadsPage() {
-  const { leads, addLead, updateLead, deleteLead, convertLeadToCustomer } = useCRMStore();
+  const { leads, settings, addLead, updateLead, deleteLead, convertLeadToCustomer } = useCRMStore();
+  const visibleFields = settings.fieldConfig.leads;
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [industryFilter, setIndustryFilter] = useState('all');
@@ -161,33 +162,35 @@ export default function LeadsPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>公司名称</th>
-                <th>联系人</th>
-                <th>电话</th>
-                <th>来源</th>
-                <th>行业</th>
-                <th>状态</th>
-                <th>创建时间</th>
+                {visibleFields.includes('companyName') && <th>公司名称</th>}
+                {visibleFields.includes('contactName') && <th>联系人</th>}
+                {visibleFields.includes('phone') && <th>电话</th>}
+                {visibleFields.includes('email') && <th>邮箱</th>}
+                {visibleFields.includes('source') && <th>来源</th>}
+                {visibleFields.includes('industry') && <th>行业</th>}
+                {visibleFields.includes('status') && <th>状态</th>}
+                {visibleFields.includes('createdAt') && <th>创建时间</th>}
                 <th className="text-right">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-slate-400">
+                  <td colSpan={visibleFields.length + 1} className="text-center py-12 text-slate-400">
                     暂无线索数据
                   </td>
                 </tr>
               ) : (
                 filteredLeads.map((lead) => (
                   <tr key={lead.id}>
-                    <td className="font-medium text-slate-900">{lead.companyName}</td>
-                    <td>{lead.contactName}</td>
-                    <td>{lead.phone}</td>
-                    <td>{getLabelByValue(LEAD_SOURCES, lead.source)}</td>
-                    <td>{getLabelByValue(INDUSTRIES, lead.industry)}</td>
-                    <td>{getStatusBadge(lead.status)}</td>
-                    <td className="text-slate-500">{lead.createdAt}</td>
+                    {visibleFields.includes('companyName') && <td className="font-medium text-slate-900">{lead.companyName}</td>}
+                    {visibleFields.includes('contactName') && <td>{lead.contactName}</td>}
+                    {visibleFields.includes('phone') && <td>{lead.phone}</td>}
+                    {visibleFields.includes('email') && <td>{lead.email || '-'}</td>}
+                    {visibleFields.includes('source') && <td>{getLabelByValue(LEAD_SOURCES, lead.source)}</td>}
+                    {visibleFields.includes('industry') && <td>{getLabelByValue(INDUSTRIES, lead.industry)}</td>}
+                    {visibleFields.includes('status') && <td>{getStatusBadge(lead.status)}</td>}
+                    {visibleFields.includes('createdAt') && <td className="text-slate-500">{lead.createdAt}</td>}
                     <td className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {lead.status !== 'converted' && (

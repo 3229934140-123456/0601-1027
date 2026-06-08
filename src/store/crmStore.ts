@@ -54,6 +54,7 @@ interface CRMState {
   addContract: (contract: Omit<Contract, 'id'>) => string;
   updateContract: (id: string, updates: Partial<Contract>) => void;
   deleteContract: (id: string) => void;
+  createContractFromOpportunity: (opportunityId: string) => string | null;
 
   addPayment: (payment: Omit<Payment, 'id'>) => void;
   updatePayment: (id: string, updates: Partial<Payment>) => void;
@@ -321,6 +322,42 @@ export const useCRMStore = create<CRMState>()(
         const newContract: Contract = { ...contract, id: generateId() };
         set((state) => ({ contracts: [newContract, ...state.contracts] }));
         get().showToast('合同创建成功');
+        return newContract.id;
+      },
+
+      createContractFromOpportunity: (opportunityId) => {
+        const { opportunities, customers, quoteItems } = get();
+        const opportunity = opportunities.find((o) => o.id === opportunityId);
+        if (!opportunity) return null;
+
+        const customer = customers.find((c) => c.id === opportunity.customerId);
+        if (!customer) return null;
+
+        const oppQuoteItems = quoteItems.filter((q) => q.opportunityId === opportunityId);
+        const quoteTotal = oppQuoteItems.reduce(
+          (sum, item) => sum + item.quantity * item.unitPrice,
+          0
+        );
+
+        const contractNo = `HT${new Date().getFullYear()}${String(
+          new Date().getMonth() + 1
+        ).padStart(2, '0')}${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+
+        const newContract: Contract = {
+          id: generateId(),
+          customerId: opportunity.customerId,
+          opportunityId: opportunityId,
+          contractNo,
+          name: `${opportunity.name} - 销售合同`,
+          amount: quoteTotal > 0 ? quoteTotal : opportunity.amount,
+          signDate: getTodayString(),
+          status: 'pending',
+          owner: opportunity.owner,
+          remarks: `由商机「${opportunity.name}」生成的合同草稿`,
+        };
+
+        set((state) => ({ contracts: [newContract, ...state.contracts] }));
+        get().showToast('合同草稿已生成');
         return newContract.id;
       },
 

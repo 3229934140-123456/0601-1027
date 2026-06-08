@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, DollarSign, FileText, ArrowRight, TrendingUp } from 'lucide-react';
 import { useCRMStore } from '../../store/crmStore';
-import { OPPORTUNITY_STAGES, SALES_REPS, LOST_REASONS } from '../../constants';
+import { OPPORTUNITY_STAGES, SALES_REPS, LOST_REASONS, CONTRACT_STATUS } from '../../constants';
 import { formatCurrency, formatDate } from '../../utils';
 import PageHeader from '../../components/UI/PageHeader';
 import SlidePanel from '../../components/UI/SlidePanel';
@@ -10,10 +10,12 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog';
 
 export default function OpportunitiesPage() {
   const {
-    opportunities, customers, quoteItems,
+    opportunities, customers, quoteItems, contracts, payments, settings,
     addOpportunity, updateOpportunity, updateOpportunityStage, deleteOpportunity,
     addQuoteItem, updateQuoteItem, deleteQuoteItem,
+    createContractFromOpportunity,
   } = useCRMStore();
+  const visibleFields = settings.fieldConfig.opportunities;
 
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [selectedOpp, setSelectedOpp] = useState<any>(null);
@@ -60,6 +62,32 @@ export default function OpportunitiesPage() {
   const getQuoteTotal = (oppId: string) => {
     const items = getOppQuoteItems(oppId);
     return items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  };
+
+  const getOppContracts = (oppId: string) => {
+    return contracts.filter((c) => c.opportunityId === oppId);
+  };
+
+  const getContractPayments = (contractId: string) => {
+    return payments.filter((p) => p.contractId === contractId);
+  };
+
+  const getPaidAmount = (contractId: string) => {
+    return getContractPayments(contractId)
+      .filter((p) => p.status === 'paid')
+      .reduce((sum, p) => sum + p.amount, 0);
+  };
+
+  const getPaymentProgress = (contract: any) => {
+    if (!contract || contract.amount === 0) return 0;
+    return Math.round((getPaidAmount(contract.id) / contract.amount) * 100);
+  };
+
+  const handleCreateContract = (oppId: string) => {
+    const contractId = createContractFromOpportunity(oppId);
+    if (contractId) {
+      setActiveTab('contract');
+    }
   };
 
   const getStageOpps = (stage: string) => {
@@ -262,13 +290,21 @@ export default function OpportunitiesPage() {
                     className="card-hover p-3 cursor-pointer"
                     onClick={() => openDetail(opp)}
                   >
-                    <p className="font-medium text-slate-800 text-sm mb-2">{opp.name}</p>
-                    <p className="text-xs text-slate-500 mb-2">{getCustomerName(opp.customerId)}</p>
+                    {visibleFields.includes('name') && (
+                      <p className="font-medium text-slate-800 text-sm mb-2">{opp.name}</p>
+                    )}
+                    {visibleFields.includes('customerName') && (
+                      <p className="text-xs text-slate-500 mb-2">{getCustomerName(opp.customerId)}</p>
+                    )}
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-primary-600">
-                        {formatCurrency(opp.amount)}
-                      </span>
-                      <span className="text-xs text-slate-400">{opp.winRate}%</span>
+                      {visibleFields.includes('amount') && (
+                        <span className="text-sm font-semibold text-primary-600">
+                          {formatCurrency(opp.amount)}
+                        </span>
+                      )}
+                      {visibleFields.includes('winRate') && (
+                        <span className="text-xs text-slate-400">{opp.winRate}%</span>
+                      )}
                     </div>
                     {stage.value !== 'won' && stage.value !== 'lost' && (
                       <div className="mt-3 flex justify-end">
@@ -304,40 +340,44 @@ export default function OpportunitiesPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>商机名称</th>
-                  <th>客户名称</th>
-                  <th>阶段</th>
-                  <th>预计金额</th>
-                  <th>赢率</th>
-                  <th>预计成交</th>
-                  <th>负责人</th>
+                  {visibleFields.includes('name') && <th>商机名称</th>}
+                  {visibleFields.includes('customerName') && <th>客户名称</th>}
+                  {visibleFields.includes('stage') && <th>阶段</th>}
+                  {visibleFields.includes('amount') && <th>预计金额</th>}
+                  {visibleFields.includes('winRate') && <th>赢率</th>}
+                  {visibleFields.includes('expectedCloseDate') && <th>预计成交</th>}
+                  {visibleFields.includes('owner') && <th>负责人</th>}
                   <th className="text-right">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {opportunities.map((opp) => (
                   <tr key={opp.id}>
-                    <td className="font-medium text-slate-900">{opp.name}</td>
-                    <td>{getCustomerName(opp.customerId)}</td>
-                    <td>
-                      <span className={`badge bg-slate-100 text-slate-700`}>
-                        {OPPORTUNITY_STAGES.find(s => s.value === opp.stage)?.label}
-                      </span>
-                    </td>
-                    <td className="font-medium text-primary-600">{formatCurrency(opp.amount)}</td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary-500 rounded-full"
-                            style={{ width: `${opp.winRate}%` }}
-                          />
+                    {visibleFields.includes('name') && <td className="font-medium text-slate-900">{opp.name}</td>}
+                    {visibleFields.includes('customerName') && <td>{getCustomerName(opp.customerId)}</td>}
+                    {visibleFields.includes('stage') && (
+                      <td>
+                        <span className={`badge bg-slate-100 text-slate-700`}>
+                          {OPPORTUNITY_STAGES.find(s => s.value === opp.stage)?.label}
+                        </span>
+                      </td>
+                    )}
+                    {visibleFields.includes('amount') && <td className="font-medium text-primary-600">{formatCurrency(opp.amount)}</td>}
+                    {visibleFields.includes('winRate') && (
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary-500 rounded-full"
+                              style={{ width: `${opp.winRate}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-slate-500">{opp.winRate}%</span>
                         </div>
-                        <span className="text-xs text-slate-500">{opp.winRate}%</span>
-                      </div>
-                    </td>
-                    <td className="text-slate-500">{opp.expectedCloseDate || '-'}</td>
-                    <td>{getOwnerName(opp.owner)}</td>
+                      </td>
+                    )}
+                    {visibleFields.includes('expectedCloseDate') && <td className="text-slate-500">{opp.expectedCloseDate || '-'}</td>}
+                    {visibleFields.includes('owner') && <td>{getOwnerName(opp.owner)}</td>}
                     <td className="text-right">
                       <button
                         onClick={() => openDetail(opp)}
@@ -367,7 +407,7 @@ export default function OpportunitiesPage() {
         {selectedOpp && (
           <div>
             <div className="flex gap-1 border-b border-slate-200 mb-4">
-              {['detail', 'quote'].map((tab) => (
+              {['detail', 'quote', 'contract'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -379,6 +419,7 @@ export default function OpportunitiesPage() {
                 >
                   {tab === 'detail' && '基本信息'}
                   {tab === 'quote' && '报价清单'}
+                  {tab === 'contract' && '关联合同'}
                 </button>
               ))}
             </div>
@@ -459,7 +500,16 @@ export default function OpportunitiesPage() {
                   >
                     编辑
                   </button>
-                  {selectedOpp.stage !== 'lost' && (
+                  {selectedOpp.stage === 'won' && getOppContracts(selectedOpp.id).length === 0 && (
+                    <button
+                      onClick={() => handleCreateContract(selectedOpp.id)}
+                      className="btn-primary flex-1"
+                    >
+                      <FileText className="w-4 h-4 mr-1.5" />
+                      生成合同
+                    </button>
+                  )}
+                  {selectedOpp.stage !== 'lost' && selectedOpp.stage !== 'won' && (
                     <button
                       onClick={() => {
                         setLostOppId(selectedOpp.id);
@@ -532,6 +582,104 @@ export default function OpportunitiesPage() {
                     <p className="text-center py-8 text-slate-400 text-sm">暂无报价项</p>
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'contract' && (
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <p className="text-sm text-slate-500">关联合同</p>
+                    <p className="text-lg font-bold text-primary-600">
+                      共 {getOppContracts(selectedOpp.id).length} 份
+                    </p>
+                  </div>
+                  {selectedOpp.stage === 'won' && getOppContracts(selectedOpp.id).length === 0 && (
+                    <button
+                      onClick={() => handleCreateContract(selectedOpp.id)}
+                      className="btn-primary text-sm"
+                    >
+                      <FileText className="w-4 h-4 mr-1" />
+                      生成合同
+                    </button>
+                  )}
+                </div>
+
+                {getOppContracts(selectedOpp.id).length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <p className="text-slate-500 mb-2">暂无关联合同</p>
+                    <p className="text-sm text-slate-400 mb-4">
+                      商机赢单后可一键生成合同草稿
+                    </p>
+                    {selectedOpp.stage !== 'won' && (
+                      <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 inline-block">
+                        请先将商机推进到"赢单"阶段
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {getOppContracts(selectedOpp.id).map((contract) => {
+                      const progress = getPaymentProgress(contract);
+                      const paidAmount = getPaidAmount(contract.id);
+                      const statusInfo = CONTRACT_STATUS.find(
+                        (s) => s.value === contract.status
+                      );
+                      return (
+                        <div
+                          key={contract.id}
+                          className="p-4 bg-slate-50 rounded-xl border border-slate-100"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <p className="font-medium text-slate-800">
+                                {contract.name}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                {contract.contractNo}
+                              </p>
+                            </div>
+                            {statusInfo && (
+                              <span className={`badge ${statusInfo.color}`}>
+                                {statusInfo.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+                            <div>
+                              <p className="text-xs text-slate-500 mb-1">合同金额</p>
+                              <p className="font-semibold text-primary-600">
+                                {formatCurrency(contract.amount)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500 mb-1">签订日期</p>
+                              <p className="text-slate-700">{contract.signDate}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+                              <span>回款进度</span>
+                              <span>{progress}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-500 rounded-full transition-all"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1.5">
+                              已回款 {formatCurrency(paidAmount)} / {formatCurrency(contract.amount)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

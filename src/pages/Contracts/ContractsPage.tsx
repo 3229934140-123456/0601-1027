@@ -10,10 +10,11 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog';
 
 export default function ContractsPage() {
   const {
-    contracts, customers, opportunities, payments,
+    contracts, customers, opportunities, payments, settings,
     addContract, updateContract, deleteContract,
     addPayment, updatePayment, markPaymentPaid, deletePayment,
   } = useCRMStore();
+  const visibleFields = settings.fieldConfig.contracts;
 
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedContract, setSelectedContract] = useState<any>(null);
@@ -227,24 +228,40 @@ export default function ContractsPage() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="font-semibold text-slate-800">{contract.name}</p>
-                  <p className="text-xs text-slate-500 mt-1">{contract.contractNo}</p>
+                  {visibleFields.includes('name') && (
+                    <p className="font-semibold text-slate-800">{contract.name}</p>
+                  )}
+                  {visibleFields.includes('contractNo') && (
+                    <p className="text-xs text-slate-500 mt-1">{contract.contractNo}</p>
+                  )}
                 </div>
-                {getStatusBadge(contract.status)}
+                {visibleFields.includes('status') && getStatusBadge(contract.status)}
               </div>
               <div className="space-y-2 text-sm mb-4">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">客户</span>
-                  <span className="text-slate-700">{getCustomerName(contract.customerId)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">金额</span>
-                  <span className="font-semibold text-primary-600">{formatCurrency(contract.amount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">签订日期</span>
-                  <span className="text-slate-700">{contract.signDate}</span>
-                </div>
+                {visibleFields.includes('customerName') && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">客户</span>
+                    <span className="text-slate-700">{getCustomerName(contract.customerId)}</span>
+                  </div>
+                )}
+                {visibleFields.includes('amount') && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">金额</span>
+                    <span className="font-semibold text-primary-600">{formatCurrency(contract.amount)}</span>
+                  </div>
+                )}
+                {visibleFields.includes('signDate') && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">签订日期</span>
+                    <span className="text-slate-700">{contract.signDate}</span>
+                  </div>
+                )}
+                {visibleFields.includes('owner') && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">负责人</span>
+                    <span className="text-slate-700">{getOwnerName(contract.owner)}</span>
+                  </div>
+                )}
               </div>
               <div>
                 <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
